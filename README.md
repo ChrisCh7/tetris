@@ -1,8 +1,8 @@
 # tetris
 A tetris game made using pygame.
 
-Controls:
-left/right arrow - move the piece left/right.
-down arrow - move the piece down faster.
-space - rotate the piece (anti-clockwise).
+Controls:<br/>
+left/right arrow - move the piece left/right.<br/>
+down arrow - move the piece down faster.<br/>
+space - rotate the piece (anti-clockwise).<br/>
 d - instantly drop the piece.
