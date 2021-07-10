@@ -16,128 +16,127 @@ ADD_BLOCK = pygame.USEREVENT + 1
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode(RESOLUTION)
+
+    game = Game(RESOLUTION)
+    game_state = GameState()
+
     pygame.display.set_caption("Tetris")
     bg = get_bg()
 
-    player_blocks = pygame.sprite.Group()
-    placed_blocks = pygame.sprite.Group()
-    all_sprites = pygame.sprite.Group()
-
-    player_blocks.add(*create_player_blocks())
-    all_sprites.add(*player_blocks)
-
     clock = pygame.time.Clock()
-    blocks_updater = BlocksUpdater()
-    congratulations = Congratulations()
 
-    score = 0
-    record = 0
-    dead = False
-    running = True
-    started = False
-
-    while running:
-        if not started:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        running = False
-                    else:
-                        started = True
-                        continue
-                elif event.type == pygame.QUIT:
-                    running = False
-
-            screen.fill((0, 0, 0))
-            text_lines = ['Press any key to start']
-            write_text_lines(text_lines, screen)
+    while game_state.running:
+        if not game_state.started:
+            start_logic(game, game_state)
         else:
-            if dead:
-                for event in pygame.event.get():
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_ESCAPE:
-                            running = False
-                        else:
-                            dead = False
-                            score = 0
-                            placed_blocks.empty()
-                            all_sprites.empty()
-                            player_blocks.empty()
-                            pygame.event.clear()
-                            player_blocks.add(*create_player_blocks())
-                            all_sprites.add(*player_blocks)
-                            continue
-                    elif event.type == pygame.QUIT:
-                        running = False
-
-                screen.fill((0, 0, 0))
-                text_lines = ['Game Over!', f'Score: {score}', f'Record: {record}', 'Press any key to restart']
-                write_text_lines(text_lines, screen)
+            if game_state.dead:
+                dead_logic(game, game_state)
             else:
-                for event in pygame.event.get():
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_ESCAPE:
-                            running = False
-                    elif event.type == pygame.QUIT:
-                        running = False
-                    elif event.type == ADD_BLOCK:
-                        placed_blocks.add(*player_blocks)
-                        player_blocks.empty()
-                        player_blocks.add(*create_player_blocks())
-                        all_sprites.add(*player_blocks)
-
-                        nr_connections_complete_line = BLOCKS_HORIZONTAL - 1
-                        # dict where the key is the bottom and values are lefts and rights
-                        left_right = defaultdict(list)
-
-                        for block in placed_blocks:
-                            left_right[block.rect.bottom].append(block.rect.left)
-                            left_right[block.rect.bottom].append(block.rect.right)
-
-                        for bottom in sorted(left_right):
-                            uniq = set(left_right[bottom])
-                            if len(left_right[bottom]) - len(uniq) == nr_connections_complete_line:
-                                # line complete
-                                for block in placed_blocks.copy():
-                                    if block.rect.bottom == bottom:
-                                        block.remove(placed_blocks, all_sprites)
-                                for block in placed_blocks:
-                                    if block.rect.bottom < bottom:
-                                        block.rect.move_ip(0, RESOLUTION[1] / BLOCKS_VERTICAL)
-                                congratulations.active = True
-                                score += 10
-
-                        score += 1
-                        if score > record:
-                            record = score
-
-                pressed_keys = pygame.key.get_pressed()
-                blocks_updater.update_player_blocks(pressed_keys, player_blocks, placed_blocks)
-
-                if (collided := pygame.sprite.groupcollide(player_blocks, placed_blocks, False, False)) \
-                        or group_has_bottom(player_blocks, RESOLUTION[1]):
-                    if group_top_is_above_screen(player_blocks):
-                        dead = True
-                    else:
-                        if collided:
-                            align_collided(collided, player_blocks)
-                        pygame.event.post(pygame.event.Event(ADD_BLOCK))
-
-                screen.blit(bg, (0, 0))
-                draw_grid(screen)
-                draw_drop_preview(screen, player_blocks, placed_blocks)
-
-                for entity in all_sprites:
-                    screen.blit(entity.surf, entity.rect)
-
-                write_score(score, screen)
-                congratulations.display(screen)
+                main_logic(bg, game, game_state)
 
         pygame.display.flip()
         clock.tick(60)
 
     pygame.quit()
+
+
+def start_logic(game, game_state):
+    for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                game_state.running = False
+            else:
+                game_state.started = True
+                continue
+        elif event.type == pygame.QUIT:
+            game_state.running = False
+    game.screen.fill((0, 0, 0))
+    text_lines = ['Press any key to start']
+    write_text_lines(text_lines, game.screen)
+
+
+def dead_logic(game, game_state):
+    for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                game_state.running = False
+            else:
+                game_state.dead = False
+                game_state.score = 0
+                game.placed_blocks.empty()
+                game.all_sprites.empty()
+                game.player_blocks.empty()
+                pygame.event.clear()
+                game.player_blocks.add(*create_player_blocks())
+                game.all_sprites.add(*game.player_blocks)
+                continue
+        elif event.type == pygame.QUIT:
+            game_state.running = False
+    game.screen.fill((0, 0, 0))
+    text_lines = ['Game Over!', f'Score: {game_state.score}', f'Record: {game_state.record}',
+                  'Press any key to restart']
+    write_text_lines(text_lines, game.screen)
+
+
+def main_logic(bg, game, game_state):
+    for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                game_state.running = False
+        elif event.type == pygame.QUIT:
+            game_state.running = False
+        elif event.type == ADD_BLOCK:
+            game.placed_blocks.add(*game.player_blocks)
+            game.player_blocks.empty()
+            game.player_blocks.add(*create_player_blocks())
+            game.all_sprites.add(*game.player_blocks)
+
+            nr_connections_complete_line = BLOCKS_HORIZONTAL - 1
+            # dict where the key is the bottom and values are lefts and rights
+            left_right = defaultdict(list)
+
+            for block in game.placed_blocks:
+                left_right[block.rect.bottom].append(block.rect.left)
+                left_right[block.rect.bottom].append(block.rect.right)
+
+            for bottom in sorted(left_right):
+                uniq = set(left_right[bottom])
+                if len(left_right[bottom]) - len(uniq) == nr_connections_complete_line:
+                    # line complete
+                    for block in game.placed_blocks.copy():
+                        if block.rect.bottom == bottom:
+                            block.remove(game.placed_blocks, game.all_sprites)
+                    for block in game.placed_blocks:
+                        if block.rect.bottom < bottom:
+                            block.rect.move_ip(0, RESOLUTION[1] / BLOCKS_VERTICAL)
+                    game.congratulations.active = True
+                    game_state.score += 10
+
+            game_state.score += 1
+            if game_state.score > game_state.record:
+                game_state.record = game_state.score
+
+    pressed_keys = pygame.key.get_pressed()
+    game.blocks_updater.update_player_blocks(pressed_keys, game.player_blocks, game.placed_blocks)
+
+    if (collided := pygame.sprite.groupcollide(game.player_blocks, game.placed_blocks, False, False)) \
+            or group_has_bottom(game.player_blocks, RESOLUTION[1]):
+        if group_top_is_above_screen(game.player_blocks):
+            game_state.dead = True
+        else:
+            if collided:
+                align_collided(collided, game.player_blocks)
+            pygame.event.post(pygame.event.Event(ADD_BLOCK))
+
+    game.screen.blit(bg, (0, 0))
+    draw_grid(game.screen)
+    draw_drop_preview(game.screen, game.player_blocks, game.placed_blocks)
+
+    for entity in game.all_sprites:
+        game.screen.blit(entity.surf, entity.rect)
+
+    write_score(game_state.score, game.screen)
+    game.congratulations.display(game.screen)
 
 
 def get_bg() -> pygame.Surface:
@@ -705,6 +704,30 @@ class Block(pygame.sprite.Sprite):
         self.surf.fill((5, 5, 5), pygame.Rect(1, 1, 1, self.rect.height - 2))
         self.surf.fill((5, 5, 5), pygame.Rect(1, self.rect.height - 2, self.rect.width - 2, 1))
         self.block_type = block_type
+
+
+class Game:
+    def __init__(self, resolution):
+        self.screen = pygame.display.set_mode(resolution)
+
+        self.player_blocks = pygame.sprite.Group()
+        self.placed_blocks = pygame.sprite.Group()
+        self.all_sprites = pygame.sprite.Group()
+
+        self.player_blocks.add(*create_player_blocks())
+        self.all_sprites.add(*self.player_blocks)
+
+        self.blocks_updater = BlocksUpdater()
+        self.congratulations = Congratulations()
+
+
+class GameState:
+    def __init__(self):
+        self.score = 0
+        self.record = 0
+        self.dead = False
+        self.running = True
+        self.started = False
 
 
 if __name__ == '__main__':
